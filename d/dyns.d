@@ -6,7 +6,8 @@ class Dyns {
   struct Field {
     Dyns self;
     size_t i;
-    auto ref val(T)() => *cast(T*)self.ptr(i);
+    auto ref ptr() => self.ptr(i);
+    auto ref val(T)() => *cast(T*)ptr;
     auto ref size() => self.sizes[i];
     auto toString() => self.ptr(i).to!string;
   }
@@ -32,7 +33,7 @@ class Dyns {
   auto size() => sizes.sum;
   void alloc() { buf = new ubyte[size].ptr; }
 
-  auto from(T)() if(is(T == struct)) {
+  void from(T)() if(is(T == struct)) {
     static foreach(field; [__traits(derivedMembers, T)])
       register(field, mixin(`T.`~field).sizeof);
   }
@@ -56,4 +57,7 @@ unittest {
   d.buf4.size = 4;
   d.alloc;
   assert(d.size == 16);
+
+  d.buf5.val!size_t = 123;
+  assert(d.buf5.val!size_t == 123);
 }
