@@ -5,11 +5,11 @@ import std;
 class Dyns {
   struct Field {
     Dyns self;
-    size_t i;
-    auto ref ptr() => self.ptr(i);
+    const size_t i;
+    auto ptr() const => self.ptr(i);
     auto ref val(T)() => *cast(T*)ptr;
     auto ref size() => self.sizes[i];
-    auto toString() => self.ptr(i).to!string;
+    auto toString() const => self.ptr(i).to!string;
   }
 
   size_t[string] keys;
@@ -17,12 +17,16 @@ class Dyns {
   void* buf;
 
   this() {}
+  this(const Dyns d) {
+    keys = cast(size_t[string])d.keys; //
+    sizes = d.sizes.dup;
+  }
   this(void* p) { opAssign(p); }
 
-  auto idx(string key) => keys[key];
-  auto offset(size_t i) => i ? sizes[0..i].sum : 0;
-  auto offset(string key) => offset(idx(key));
-  auto ptr(T)(T key) => buf + offset(key);
+  auto idx(string key) const => keys[key];
+  auto offset(size_t i) const => i ? sizes[0..i].sum : 0;
+  auto offset(string key) const => offset(idx(key));
+  auto ptr(T)(T key) const => buf + offset(key);
 
   void register(string key, size_t size) {
     keys[key] = keys.length;
@@ -30,16 +34,18 @@ class Dyns {
   }
   void register(T)(string key, size_t len=1) => register(key, T.sizeof * len);
 
-  auto size() => sizes.sum;
+  auto size() const => sizes.sum;
   void alloc() { buf = new ubyte[size].ptr; }
-
-  void from(T)() if(is(T == struct)) {
-    static foreach(field; [__traits(derivedMembers, T)])
-      register(field, mixin(`T.`~field).sizeof);
-  }
 
   auto opAssign(void* p) => buf = p;
   auto opDispatch(string key)() => Field(this, idx(key));
+
+  static auto from(T)() if(is(T == struct)) {
+    auto d = new Dyns;
+    static foreach(field; [__traits(derivedMembers, T)])
+      d.register(field, mixin(`T.`~field).sizeof);
+    return d;
+  }
 }
 
 unittest {
@@ -50,9 +56,9 @@ unittest {
     ubyte[0]  buf4;
     size_t    buf5;
   }
+  const Sd = Dyns.from!S;
 
-  auto d = new Dyns;
-  d.from!S;
+  auto d = new Dyns(Sd);
   d.buf2.size = 1;
   d.buf4.size = 4;
   d.alloc;
