@@ -2,7 +2,11 @@
 
 import std;
 
+alias _Dyns(_...) = void[0];
+
 class Dyns {
+  alias FieldTup = Tuple!(string, "key", size_t, "size");
+
   struct Field {
     Dyns self;
     const size_t i;
@@ -21,6 +25,7 @@ class Dyns {
     keys = cast(size_t[string])d.keys; //
     sizes = d.sizes.dup;
   }
+  this(FieldTup[] a) { a.each!(t => register(t)); }
   this(void* p) { opAssign(p); }
 
   auto idx(string key) const => keys[key];
@@ -32,6 +37,7 @@ class Dyns {
     keys[key] = keys.length;
     sizes ~= size;
   }
+  void register(FieldTup t) => register(t.key, t.size);
   void register(T)(string key, size_t len=1) => register(key, T.sizeof * len);
 
   auto size() const => sizes.sum;
@@ -40,11 +46,24 @@ class Dyns {
   auto opAssign(void* p) => buf = p;
   auto opDispatch(string key)() => Field(this, idx(key));
 
+  static auto from(T...)() {
+    auto kv(U, string key, V...)() {
+      // static ifじゃないとkv!Vの型が評価されちゃう
+      static if(V.length) return [FieldTup(key, U.sizeof)] ~ kv!V;
+      else                return [FieldTup(key, U.sizeof)];
+    }
+    enum tups = kv!T; // ctfe
+    return new Dyns(tups);
+  }
+
   static auto from(T)() if(is(T == struct)) {
-    auto d = new Dyns;
-    static foreach(field; [__traits(derivedMembers, T)])
-      d.register(field, mixin(`T.`~field).sizeof);
-    return d;
+    enum tups = (){
+      FieldTup[] a;
+      static foreach(field; [__traits(derivedMembers, T)])
+        a ~= FieldTup(field, mixin(`T.` ~ field).sizeof);
+      return a;
+    }(); // ctfe
+    return new Dyns(tups);
   }
 }
 
