@@ -3,8 +3,8 @@
 #include "nullstream.hh"
 
 #include <iostream>
-#include <ostream>
 #include <sstream>
+#include <string>
 #include <utility>
 
 //
@@ -16,6 +16,8 @@ struct Context {
 namespace yamad {
 
 using namespace std::literals;
+
+constexpr inline std::string_view prefix{"hoge: "};
 
 auto c_dim(Context& ctx, auto&& msg) -> decltype(msg + "") {
   if(ctx.has_color) return "\e[1;30m" + msg + "\e[0m";
@@ -33,7 +35,7 @@ class Logger {
 
  public:
   Logger(std::ostream& out): out{out} {
-    *this << "dinit: ";
+    *this << prefix;
   }
   ~Logger() { out << ss.str() << '\n'; }
 

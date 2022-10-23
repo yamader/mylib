@@ -3,6 +3,7 @@
 import std;
 
 class Dyns(T...) {
+ private:
   static if(T.length == 1) {
     // T is a struct
     alias Types = Fields!T;
@@ -45,7 +46,6 @@ class Dyns(T...) {
     return tuple!("idx", "sizes")(idx, sizes);
   }
 
- private:
   enum size_t[string] _dyns_idx = init.idx;
   Size[] _dyns_sizes = init.sizes;
   SumType!Types[size_t] _dyns_dynses;
