@@ -48,7 +48,7 @@ class Dyns(T...) {
 
   enum size_t[string] _dyns_idx = init.idx;
   Size[] _dyns_sizes = init.sizes;
-  SumType!Types[size_t] _dyns_dynses;
+  SumType!(NoDuplicates!Types)[size_t] _dyns_dynses;
   void* _dyns_buf;
 
   auto offset(size_t i) const {
