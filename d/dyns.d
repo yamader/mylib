@@ -51,6 +51,25 @@ class Dyns(T...) {
   SumType!Types[size_t] _dyns_dynses;
   void* _dyns_buf;
 
+  auto offset(size_t i) const {
+    if(!i) return 0;
+    return _dyns_sizes[0..i].map!(s => s.match!(
+        (size_t v) => v,
+        (size_t delegate() f) => f()
+      )).sum;
+  }
+  auto offset(string key) const => offset(_dyns_idx[key]);
+  auto ptr(U)(U field) const => _dyns_buf + offset(field);
+
+  auto ref getSize(size_t i) => _dyns_sizes[i].match!(
+      (ref size_t v) => v,
+      (ref size_t delegate() f) => f()
+    );
+  auto ref setSize(size_t i, size_t n) => _dyns_sizes[i].match!(
+      (ref size_t v) => v = n,
+      (ref size_t delegate() f) => f()
+    );
+
  public:
   this() {
     static foreach(i, Type; Types) static if(isDyns!Type) {
@@ -63,27 +82,6 @@ class Dyns(T...) {
     opAssign(p);
   }
 
-  auto offset(size_t i) const {
-    if(!i) return 0;
-    return _dyns_sizes[0..i].map!(s => s.match!(
-        (size_t v) => v,
-        (size_t delegate() f) => f()
-      )).sum;
-  }
-  auto offset(string key) const => offset(_dyns_idx[key]);
-  auto ptr(U)(U field) const => _dyns_buf + offset(field);
-
-  // field
-  auto ref getSize(size_t i) => _dyns_sizes[i].match!(
-      (ref size_t v) => v,
-      (ref size_t delegate() f) => f()
-    );
-  auto ref setSize(size_t i, size_t n) => _dyns_sizes[i].match!(
-      (ref size_t v) => v = n,
-      (ref size_t delegate() f) => f()
-    );
-
-  // total
   auto size() const => _dyns_sizes.map!(s => s.match!(
       (size_t v) => v,
       (size_t delegate() f) => f()
@@ -105,12 +103,13 @@ class Dyns(T...) {
       auto ref size() => self.getSize(i);
       auto ref size(size_t n) => self.setSize(i, n);
       auto ref val() {
-        static if(isArray!Type) return cast(ElementType!Type*)ptr;
-        else                    return *cast(Type*)ptr;
-      }
-      auto ref arr()() if(isArray!Type) {
-        auto len = size / ElementType!Type.sizeof;
-        return val[0..len];
+        static if(isArray!Type) {
+          auto len = size / ElementType!Type.sizeof;
+          auto buf = cast(ElementType!Type*)ptr;
+          return buf[0..len];
+        } else {
+          return *cast(Type*)ptr;
+        }
       }
       auto toString() const => ptr.to!string;
     }
@@ -137,8 +136,8 @@ unittest {
     assert(s.size == 12);
     s.n.val = 123;
     assert(s.n.val == 123);
-    s.buf.arr[2] = 5;
-    assert(s.buf.arr == [1, 2, 5, 4]);
+    s.buf.val[2] = 5;
+    assert(s.buf.val == [1, 2, 5, 4]);
   }
 
   struct S2 {
