@@ -51,15 +51,13 @@ class Dyns(T...) {
   SumType!(NoDuplicates!Types)[size_t] _dyns_dynses;
   void* _dyns_buf;
 
-  auto offset(size_t i) const {
-    if(!i) return 0;
-    return _dyns_sizes[0..i].map!(s => s.match!(
+  auto fieldPtr(size_t i) const {
+    auto offset = _dyns_sizes[0..i].map!(s => s.match!(
         (size_t v) => v,
         (size_t delegate() f) => f()
       )).sum;
+    return _dyns_buf + offset;
   }
-  auto offset(string key) const => offset(_dyns_idx[key]);
-  auto ptr(U)(U field) const => _dyns_buf + offset(field);
 
   auto ref getSize(size_t i) => _dyns_sizes[i].match!(
       (ref size_t v) => v,
@@ -73,7 +71,7 @@ class Dyns(T...) {
  public:
   this() {
     static foreach(i, Type; Types) static if(isDyns!Type) {
-      _dyns_dynses[i] = new Type(ptr(i));
+      _dyns_dynses[i] = new Type(fieldPtr(i));
       _dyns_sizes[i] = () => _dyns_dynses[i].tryMatch!((Type d) => d.size);
     }
   }
@@ -82,6 +80,7 @@ class Dyns(T...) {
     opAssign(p);
   }
 
+  auto ref ptr() => _dyns_buf;
   auto size() const => _dyns_sizes.map!(s => s.match!(
       (size_t v) => v,
       (size_t delegate() f) => f()
@@ -99,7 +98,7 @@ class Dyns(T...) {
 
     struct Field {
       Dyns self;
-      auto ptr() const => self.ptr(i);
+      auto ptr() const => self.fieldPtr(i);
       auto ref size() => self.getSize(i);
       auto ref size(size_t n) => self.setSize(i, n);
       auto ref val() {
