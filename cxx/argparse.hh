@@ -2,8 +2,8 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <deque>
 #include <map>
-#include <queue>
 #include <stdexcept>
 #include <string>
 #include <variant>
@@ -31,8 +31,8 @@ class Args {
 
  public:
   const std::vector<std::string> raw_args;
-  std::queue<std::string> args;
-  size_t skip;
+  std::deque<std::string> args;
+  size_t skip = 1;
 
   Args(int argc, char* argv[]): raw_args(argv, argv + argc) {}
 
@@ -58,7 +58,7 @@ class Args {
         if(s.starts_with("--")) {
           if(s == "--") {
             i++;
-            for(; i < raw_args.size(); i++) args.push(raw_args[i]);
+            for(; i < raw_args.size(); i++) args.push_back(raw_args[i]);
             break;
           }
           auto eq_pos = s.find('=');
@@ -79,7 +79,7 @@ class Args {
           continue;
         }
         if(s == "-") {
-          args.push(s);
+          args.push_back(s);
           continue;
         }
         for(size_t j = 1; j < s.size(); j++) {
@@ -102,7 +102,7 @@ class Args {
         }
         continue;
       }
-      args.push(s);
+      args.push_back(s);
     }
   }
 

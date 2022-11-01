@@ -11,6 +11,7 @@
 struct Context {
   bool debugging = false;
   bool has_color = true;
+  std::string name = "app";
 };
 
 namespace yamad {
@@ -32,9 +33,12 @@ auto c_err(Context& ctx, auto&& msg) -> decltype(msg + "") {
 class Logger {
   std::stringstream ss;
   std::ostream& os;
+  Context& ctx;
 
  public:
-  Logger(std::ostream& os): os{os} { ss << logger_prefix; }
+  Logger(Context& ctx, std::ostream& os): os{os}, ctx{ctx} {
+    ss << ctx.name << ": ";
+  }
   ~Logger() { os << ss.str() << '\n'; }
 
   template<typename T>
@@ -49,7 +53,7 @@ class Log {
   Context& ctx;
 
  public:
-  Log(Context& ctx): logger{std::cout}, ctx{ctx} {}
+  Log(Context& ctx): logger{ctx, std::cout}, ctx{ctx} {}
 
   template<typename T>
   auto operator<<(T&& val) -> Log& {
@@ -63,7 +67,7 @@ class Err {
   Context& ctx;
 
  public:
-  Err(Context& ctx): logger{std::cerr}, ctx{ctx} {
+  Err(Context& ctx): logger{ctx, std::cerr}, ctx{ctx} {
     logger << c_err(ctx, "error: "s);
   }
 
@@ -79,7 +83,7 @@ class Fatal {
   Context& ctx;
 
  public:
-  Fatal(Context& ctx): logger{std::cerr}, ctx{ctx} {
+  Fatal(Context& ctx): logger{ctx, std::cerr}, ctx{ctx} {
     logger << c_err(ctx, "fatal: "s);
   }
   [[noreturn]] ~Fatal() {
@@ -104,7 +108,7 @@ class Debug {
   }
 
  public:
-  Debug(Context& ctx): logger{switch_os(ctx)}, ctx{ctx} {
+  Debug(Context& ctx): logger{ctx, switch_os(ctx)}, ctx{ctx} {
     logger << c_dim(ctx, "debug: "s);
   }
 
