@@ -17,7 +17,7 @@ namespace yamad {
 
 using namespace std::literals;
 
-constexpr inline std::string_view prefix{"hoge: "};
+constexpr inline std::string_view logger_prefix{"app: "};
 
 auto c_dim(Context& ctx, auto&& msg) -> decltype(msg + "") {
   if(ctx.has_color) return "\e[1;30m" + msg + "\e[0m";
@@ -30,14 +30,12 @@ auto c_err(Context& ctx, auto&& msg) -> decltype(msg + "") {
 }
 
 class Logger {
-  std::ostream& out;
   std::stringstream ss;
+  std::ostream& os;
 
  public:
-  Logger(std::ostream& out): out{out} {
-    *this << prefix;
-  }
-  ~Logger() { out << ss.str() << '\n'; }
+  Logger(std::ostream& os): os{os} { ss << logger_prefix; }
+  ~Logger() { os << ss.str() << '\n'; }
 
   template<typename T>
   auto operator<<(T&& val) -> Logger& {
@@ -47,11 +45,11 @@ class Logger {
 };
 
 class Log {
-  Context& ctx;
   Logger logger;
+  Context& ctx;
 
  public:
-  Log(Context& ctx): ctx{ctx}, logger{std::cout} {}
+  Log(Context& ctx): logger{std::cout}, ctx{ctx} {}
 
   template<typename T>
   auto operator<<(T&& val) -> Log& {
@@ -61,12 +59,12 @@ class Log {
 };
 
 class Err {
-  Context& ctx;
   Logger logger;
+  Context& ctx;
 
  public:
-  Err(Context& ctx): ctx{ctx}, logger{std::cerr} {
-    *this << c_err(ctx, "error: "s);
+  Err(Context& ctx): logger{std::cerr}, ctx{ctx} {
+    logger << c_err(ctx, "error: "s);
   }
 
   template<typename T>
@@ -77,12 +75,12 @@ class Err {
 };
 
 class Fatal {
-  Context& ctx;
   Logger logger;
+  Context& ctx;
 
  public:
-  Fatal(Context& ctx): ctx{ctx}, logger{std::cerr} {
-    *this << c_err(ctx, "fatal: "s);
+  Fatal(Context& ctx): logger{std::cerr}, ctx{ctx} {
+    logger << c_err(ctx, "fatal: "s);
   }
   [[noreturn]] ~Fatal() {
     logger.~Logger();
@@ -97,17 +95,17 @@ class Fatal {
 };
 
 class Debug {
-  Context& ctx;
   Logger logger;
+  Context& ctx;
 
- public:
-  Debug(Context& ctx): ctx{ctx}, logger{init_logger(ctx)} {
-    *this << c_dim(ctx, "debug: "s);
+  auto switch_os(Context& ctx) -> std::ostream& {
+    if(ctx.debugging) return std::cout;
+    else              return yamad::null_stream;
   }
 
-  auto init_logger(Context& ctx) -> Logger {
-    if(ctx.debugging) return {std::cout};
-    else              return {yamad::null_stream};
+ public:
+  Debug(Context& ctx): logger{switch_os(ctx)}, ctx{ctx} {
+    logger << c_dim(ctx, "debug: "s);
   }
 
   template<typename T>

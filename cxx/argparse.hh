@@ -29,9 +29,9 @@ class Args {
 
   std::map<Key, Arg> arg;
   std::map<std::string_view, Arg*> name; // 参照使いたい
-  std::vector<std::string> raw_args;
 
  public:
+  const std::vector<std::string> raw_args;
   std::queue<std::string> args;
 
   Args(int argc, char* argv[]): raw_args(argv, argv + argc) {}

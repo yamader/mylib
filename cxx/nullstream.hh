@@ -12,10 +12,11 @@ class NullBuf: public std::streambuf {
 
 class NullStream: public std::ostream {
   NullBuf buf;
+
  public:
   NullStream(): std::ostream{&buf} {}
 };
 
-static NullStream null_stream;
+inline NullStream null_stream;
 
 }
