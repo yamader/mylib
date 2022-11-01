@@ -6,7 +6,6 @@
 #include <queue>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -33,6 +32,7 @@ class Args {
  public:
   const std::vector<std::string> raw_args;
   std::queue<std::string> args;
+  size_t skip;
 
   Args(int argc, char* argv[]): raw_args(argv, argv + argc) {}
 
@@ -52,7 +52,7 @@ class Args {
   }
 
   auto parse() -> void {
-    for(size_t i = 0; i < raw_args.size(); i++) {
+    for(size_t i = skip; i < raw_args.size(); i++) {
       auto& s = raw_args[i];
       if(s.starts_with('-')) {
         if(s.starts_with("--")) {
