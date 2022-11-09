@@ -4,50 +4,21 @@ import std;
 
 class Dyns(T...) {
  private:
-  static if(T.length == 1) {
+  static if(T.length <= 1) {
     // T is a struct
     alias Types = Fields!T;
+    enum _dyns_members = [__traits(derivedMembers, T)];
   } else {
     // T are fields
-    template Keys(T, string _, U...) {
-      static if(U.length) alias Keys = AliasSeq!(T, Keys!U);
-      else                alias Keys = T;
-    }
-    alias Types = Keys!T;
+    alias Types = Stride!(2, T);
+    enum _dyns_members = [Stride!(2, T[1..$])];
   }
 
   alias Size = SumType!(size_t, size_t delegate());
-
   enum isDyns(T) = __traits(isSame, TemplateOf!Dyns, TemplateOf!T);
 
-  static init() {
-    size_t[string] idx;
-    typeof(_dyns_sizes) sizes;
-    static if(T.length == 1) {
-      // T is a struct
-      static foreach(key; [__traits(derivedMembers, T)]) {{
-        alias I = typeof(mixin(`T[0].` ~ key));
-        idx[key] = idx.length;
-        static if(isDyns!I) Size s = 0;
-        else                Size s = I.sizeof;
-        sizes ~= s;
-      }}
-    } else {
-      // T are fields
-      auto unpack(U, string key, V...)() {
-        idx[key] = idx.length;
-        static if(isDyns!U) Size s = 0;
-        else                Size s = U.sizeof;
-        sizes ~= s;
-        static if(V.length) unpack!V;
-      }
-      unpack!T;
-    }
-    return tuple!("idx", "sizes")(idx, sizes);
-  }
-
-  enum size_t[string] _dyns_idx = init.idx;
-  Size[] _dyns_sizes = init.sizes;
+  enum _dyns_idx = zip(_dyns_members, _dyns_members.length.iota).assocArray;
+  Size[] _dyns_sizes;
   SumType!(NoDuplicates!Types)[size_t] _dyns_dynses;
   void* _dyns_buf;
 
@@ -70,6 +41,9 @@ class Dyns(T...) {
 
  public:
   this() {
+    enum initSize(T) = isDyns!T ? 0 : T.sizeof;
+    enum sizes = [staticMap!(initSize, Types)].map!Size.array;
+    _dyns_sizes = sizes;
     static foreach(i, Type; Types) static if(isDyns!Type) {
       _dyns_dynses[i] = new Type(fieldPtr(i));
       _dyns_sizes[i] = () => _dyns_dynses[i].tryMatch!((Type d) => d.size);
