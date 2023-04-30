@@ -46,7 +46,7 @@ class Dyns(T...) {
     _dyns_sizes = sizes;
     static foreach(i, Type; Types) static if(isDyns!Type) {
       _dyns_dynses[i] = new Type(fieldPtr(i));
-      _dyns_sizes[i] = () => _dyns_dynses[i].tryMatch!((Type d) => d.size);
+      _dyns_sizes[i] = () => _dyns_dynses[i].tryMatch!((Type d) => d._size);
     }
   }
   this(const void* p) {
@@ -54,37 +54,47 @@ class Dyns(T...) {
     opAssign(p);
   }
 
-  auto ref ptr() => _dyns_buf;
-  auto size() const => _dyns_sizes.map!(s => s.match!(
+  auto ref _ptr() => _dyns_buf;
+  auto _size() const => _dyns_sizes.map!(s => s.match!(
       (size_t v) => v,
       (size_t delegate() f) => f()
     )).sum;
-  void alloc() { opAssign(new ubyte[size].ptr); }
+  void _alloc() { opAssign(new ubyte[_size].ptr); }
 
   auto opAssign(const void* p) {
     _dyns_buf = cast(void*)p;
     return this;
   }
-
   auto opDispatch(string key)() if(_dyns_idx.keys.canFind(key)) {
     enum i = _dyns_idx[key];
     alias Type = Types[i];
 
     struct Field {
       Dyns self;
-      auto ptr() const => self.fieldPtr(i);
-      auto ref size() => self.getSize(i);
-      auto ref size(size_t n) => self.setSize(i, n);
-      auto ref val() {
+
+      auto _ptr() const => self.fieldPtr(i);
+      auto ref _size() => self.getSize(i);
+      auto ref _size(size_t n) => self.setSize(i, n);
+      auto ref _val() {
         static if(isArray!Type) {
-          auto len = size / ElementType!Type.sizeof;
-          auto buf = cast(ElementType!Type*)ptr;
+          auto len = _size / ElementType!Type.sizeof;
+          auto buf = cast(ElementType!Type*)_ptr;
           return buf[0..len];
         } else {
-          return *cast(Type*)ptr;
+          return *cast(Type*)_ptr;
         }
       }
-      auto toString() const => ptr.to!string;
+
+      auto ref opCast(T)() => cast(T)_val;
+      auto ref opIndex(A...)(A a) => _val[a];
+      auto ref opDispatch(string s)() => mixin(`_val.`~s);
+      auto opEquals(T)(T x) => _val == x;
+      auto opCmp(T)(T x) {
+        static if(isCallable!(_val.opCmp)) return _val.opCmp(x);
+        else                               return _val - x;
+      }
+
+      auto toString() const => _ptr.to!string;
     }
 
     static if(isDyns!Type)  return _dyns_dynses[i].tryMatch!((Type d) => d);
@@ -105,12 +115,12 @@ unittest {
   {
     auto buf = Sbuf(4, [1, 2, 3, 4]);
     auto s = new Sdyn(&buf);
-    s.buf.size = s.n.val;
-    assert(s.size == 12);
-    s.n.val = 123;
-    assert(s.n.val == 123);
-    s.buf.val[2] = 5;
-    assert(s.buf.val == [1, 2, 5, 4]);
+    s.buf._size = s.n._val;
+    assert(s._size == 12);
+    s.n._val = 123;
+    assert(s.n == 123);
+    s.buf[2] = 5;
+    assert(s.buf == [1, 2, 5, 4]);
   }
 
   struct S2 {
@@ -123,11 +133,11 @@ unittest {
 
   {
     auto s = new Dyns!S2;
-    s.buf2.size = 3;
-    s.buf4.buf.size = 4;
-    assert(s.size == 28);
-    s.alloc;
-    s.buf5.val = size_t.max;
-    assert(s.buf5.val == size_t.max);
+    s.buf2._size = 3;
+    s.buf4.buf._size = 4;
+    assert(s._size == 28);
+    s._alloc;
+    cast(size_t)s.buf5 = size_t.max;
+    assert(s.buf5 == size_t.max);
   }
 }
